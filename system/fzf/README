@@ -9,3 +9,5 @@ WITH_VIM=no ./fzf.SlackBuild
 and the plugin will be installed to /usr/share/fzf/vim/ instead.
 
 NOTE: google-go-lang is only needed at compile time - not at runtime.
+
+TEST
