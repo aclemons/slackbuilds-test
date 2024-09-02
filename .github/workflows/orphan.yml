@@ -1,0 +1,63 @@
+---
+name: Orphan slackbuilds
+'on':
+  workflow_dispatch:
+    inputs:
+      maintainer:
+        description: 'The maintainer who is orphaning builds. The workflow will orphan scripts matching either MAINTAINER and EMAIL in the info file.'
+        required: true
+      mailinglistlink:
+        description: 'Link to a message on the mailing list regarding this action.'
+        required: false
+jobs:
+  orphan:
+    timeout-minutes: 20
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      BOT_NAME: sbo-bot[bot]
+      BOT_ID: 143931017
+    steps:
+      - name: Set maintainer
+        run: |
+          MAINTAINER="${{ inputs.maintainer }}"
+          MAILINGLISTLINK="${{ inputs.mailinglistlink }}"
+
+          printf 'MAINTAINER=%s\n' "$MAINTAINER" >> "$GITHUB_ENV"
+
+          if [ -n "$MAILINGLISTLINK" ] ; then
+            printf 'MAILINGLISTLINK=%s\n' "$MAILINGLISTLINK" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          show-progress: false
+
+      - name: Orphan builds
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          grep --files-with-matches -r 'MAINTAINER="${{ env.MAINTAINER }}"' | sed '/^\./d' | sed -n '/[^\/][^\/]*\/[^\/][^\/]*\//p' | xargs -I xx dirname xx | sort -u | while read -r project ; do
+            sed -i 's/^MAINTAINER=.*$/MAINTAINER="orphaned (no maintainer)"/' "$project/"*.info
+            sed -i 's/^EMAIL=.*$/EMAIL="nobody@domain.com"/' "$project/"*.info
+
+            git add "$project"
+
+            printf "%s: Orphaned (no maintainer).\n" "$project" > /tmp/message
+
+            if [ -n "$MAILINGLISTLINK" ] ; then
+              printf '\n%s\n' "$MAILINGLISTLINK" >> /tmp/message
+            fi
+
+            </tmp/message git commit --author "${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>" --no-verify -F -
+          done
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
+        with:
+          branch: orphan
+          branch-suffix: timestamp
+          base: master
