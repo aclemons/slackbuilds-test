@@ -56,3 +56,5 @@ To learn more see `go help buildmode`.
 
 To elect to run the buildtime tests of this package, provide the
 environment variable RUN_TEST=true at build time.
+
+Testing text
